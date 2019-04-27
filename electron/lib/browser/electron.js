@@ -3,10 +3,12 @@ const electron = require('electron');
 const ipcMain = require('./api/ipc-main');
 electron.ipcMain = ipcMain;
 
-electron.BrowserWindow = require("./../browser/api/browser-window");
-
 var App = require("./../browser/api/app").App;
 electron.app = new App();
+
+electron.BrowserWindow = require("./../browser/api/browser-window");
+
+electron.webContents = require("./../browser/api/web-contents");
 
 const EventEmitter = require('events').EventEmitter;
 Object.setPrototypeOf(App.prototype, EventEmitter.prototype);
@@ -23,8 +25,14 @@ electron.isPromise = isPromise;
 const dialog = require('./api/dialog').dialog;
 electron.dialog = dialog;
 
+const net = require('./api/net').net;
+electron.net = net;
+
 electron.shell = require("./../common/api/shell").Shell;
 electron.screen = require("./../common/api/screen").Screen;
+electron.tray = require("./../common/api/screen").Tray;
+electron.clipboard = require("./../common/api/clipboard");
+electron.nativeImage = require("./../common/api/native-image").NativeImage;
 
 function SystemPreferences () {}
 SystemPreferences.prototype.isDarkMode = function() { return false; }
@@ -36,7 +44,7 @@ electron.systemPreferences = new SystemPreferences();
 
 ////////////////////////////////////////////////////////////////
 
-electron.protocol = require("./protocol").protocol;
+electron.protocol = require("./api/protocol").protocol;
 
 // function Protocol() {}
 // Protocol.prototype.registerStandardSchemes = function(schemes) {}
@@ -56,6 +64,21 @@ electron.protocol = require("./protocol").protocol;
 // electron.protocol = new Protocol();
 ////////////////////////////////////////////////////////////////
 
+var TouchBar = function (){};
+TouchBar.TouchBarButton = function() {};
+TouchBar.TouchBarColorPicker = function() {};
+TouchBar.TouchBarGroup = function() {};
+TouchBar.TouchBarLabel = function() {};
+TouchBar.TouchBarPopover = function() {};
+TouchBar.TouchBarScrubber = function() {};
+TouchBar.TouchBarSegmentedControl = function() {};
+TouchBar.TouchBarSlider = function() {};
+TouchBar.TouchBarSpacer = function() {};
+
+electron.TouchBar = TouchBar;
+
+////////////////////////////////////////////////////////////////
+
 function AutoUpdater() {}
 AutoUpdater.prototype.on = function(evt, callback) {}
 AutoUpdater.prototype.setFeedURL= function(url) {}
@@ -64,6 +87,7 @@ AutoUpdater.prototype.quitAndInstall = function() {}
 
 electron.autoUpdater = new AutoUpdater();
 ////////////////////////////////////////////////////////////////
+/*
 function Tray() {}
 Tray.prototype.on = function(evt, callback) {}
 Tray.prototype.destroy = function() {}
@@ -76,6 +100,8 @@ Tray.prototype.popUpContextMenu = function(menu, position) {}
 Tray.prototype.setContextMenu = function(menu) {}
 
 electron.Tray = Tray;
+*/
+electron.Tray = require("./api/tray").Tray;
 ////////////////////////////////////////////////////////////////
 function GlobalShortcut() {}
 GlobalShortcut.prototype.register = function(accelerator, callback) {}
@@ -83,6 +109,22 @@ GlobalShortcut.prototype.isRegistered = function(accelerator) { return true; }
 GlobalShortcut.prototype.unregister= function() {}
 GlobalShortcut.prototype.unregisterAll = function() {}
 electron.globalShortcut = new GlobalShortcut();
+////////////////////////////////////////////////////////////////
+function PowerMonitor() {}
+PowerMonitor.prototype.on = function(evtName, callback) {}
+electron.powerMonitor = new PowerMonitor();
+////////////////////////////////////////////////////////////////
+function PowerSaveBlocker() {}
+PowerSaveBlocker.prototype.start = function(type) { return 0; }
+PowerSaveBlocker.prototype.stop = function(id) {}
+PowerSaveBlocker.prototype.isStarted = function(id) { return false; }
+electron.powerSaveBlocker = new PowerSaveBlocker();
+////////////////////////////////////////////////////////////////
+function CrashReporter () {}
+CrashReporter.prototype.start = function(options) { return; }
+CrashReporter.prototype.getLastCrashReport = function() { return null; }
+CrashReporter.prototype.getUploadedReports = function() { return 0; }
+electron.crashReporter = new CrashReporter();
 ////////////////////////////////////////////////////////////////
 
 module.exports = electron;

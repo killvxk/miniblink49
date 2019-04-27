@@ -1,5 +1,11 @@
-﻿//#include "nodeblink.h"
+﻿#ifndef browser_api_ApiApp_h
+#define browser_api_ApiApp_h
+
 #include "common/api/EventEmitter.h"
+
+typedef struct HWND__ *HWND;
+typedef struct tagCOPYDATASTRUCT COPYDATASTRUCT;
+typedef void *HANDLE;
 
 namespace atom {
 
@@ -49,7 +55,7 @@ public:
 
     std::string getLocaleApi();
 
-    void makeSingleInstanceApi(const v8::FunctionCallbackInfo<v8::Value>& args);
+    bool makeSingleInstanceImplApi(const v8::FunctionCallbackInfo<v8::Value>& args);
     void releaseSingleInstanceApi();
 
     void relaunchApi(const base::DictionaryValue& options);
@@ -59,8 +65,14 @@ public:
     void onWindowAllClosed();
 
 public:
+    void onCopyData(const COPYDATASTRUCT* copyData);
+
     static gin::WrapperInfo kWrapperInfo;
     static v8::Persistent<v8::Function> constructor;
+
+    v8::Persistent<v8::Value> m_singleInstanceCall;
+    HWND m_hiddenWindow;
+    HANDLE m_singleInstanceHandle;
 
 private:
     static App* m_instance;
@@ -71,3 +83,5 @@ private:
 };
 
 } // atom
+
+#endif // browser_api_ApiApp_h

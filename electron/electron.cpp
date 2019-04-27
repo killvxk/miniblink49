@@ -4,8 +4,9 @@
 #include "common/NodeRegisterHelp.h"
 #include "common/NodeThread.h"
 #include "common/AtomCommandLine.h"
+#include "common/InitGdiPlus.h"
 #include "third_party/zlib/unzip.h"
-#include "NodeBlink.h"
+#include "node/NodeBlink.h"
 #include <windows.h>
 #include <objbase.h>
 
@@ -23,6 +24,7 @@
     fn(atom_browser_menu) \
     fn(atom_browser_dialog) \
     fn(atom_browser_protocol) \
+    fn(atom_browser_tray) \
     fn(atom_renderer_ipc) \
     fn(atom_common_v8_util) \
     fn(atom_common_shell) \
@@ -30,7 +32,9 @@
     fn(atom_common_screen) \
     fn(atom_renerer_webframe) \
     fn(atom_common_intl_collator) \
-    fn(atom_common_asar)
+    fn(atom_common_asar) \
+    fn(atom_common_nativeImage) \
+    fn(atom_common_clipboard)
 
 namespace atom {
 
@@ -62,12 +66,18 @@ static void initPeRes(HINSTANCE hInstance) {
 
 } // atom
 
+void scrt_initialize_thread_safe_statics();
+
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow) {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
-    ::CoInitialize(NULL);
+    ::OleInitialize(nullptr);
 
+#if USING_VC6RT == 1
+    scrt_initialize_thread_safe_statics();
+#endif
+    atom::initGDIPlusClsids();
     atom::AtomCommandLine::initAW();
     atom::ThreadCall::setMainThread();
     atom::initPeRes(hInstance); // 初始化PE打包的资源
@@ -82,7 +92,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmd
 
     atom::NodeArgc* node = atom::runNodeThread();
     
-    uv_loop_t* loop = uv_default_loop();
+    uv_loop_t* loop = nullptr; // uv_default_loop();
+    atom::ThreadCall::initTaskQueue();
     atom::ThreadCall::messageLoop(loop, nullptr, nullptr);
     atom::ThreadCall::shutdown();
 

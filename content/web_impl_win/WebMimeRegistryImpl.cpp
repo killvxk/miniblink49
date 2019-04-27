@@ -1,6 +1,7 @@
 #include "config.h"
 #include "WebMimeRegistryImpl.h"
 #include "third_party/WebKit/public/platform/WebString.h"
+#include "wke/wkeGlobalVar.h"
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFStringUtil.h>
 #include <wtf/HashMap.h>
@@ -73,8 +74,11 @@ blink::WebMimeRegistry::SupportsType WebMimeRegistryImpl::supportsMIMEType(const
             "text/plain",
             "text/html",
             "text/xml",
+            "multipart/related",
             "application/x-javascript",
             "application/xhtml+xml",
+            "application/json",
+            "application/pdf",
             "image/svg+xml",
             "image/jpeg",
             "image/png",
@@ -154,8 +158,17 @@ blink::WebMimeRegistry::SupportsType WebMimeRegistryImpl::supportsJavaScriptMIME
 }
 
 blink::WebMimeRegistry::SupportsType WebMimeRegistryImpl::supportsMediaMIMEType(
-    const blink::WebString&, const blink::WebString&, const blink::WebString&)
+    const blink::WebString& type, const blink::WebString& typeCodecs, const blink::WebString& system)
 {
+    String typeString = type;
+    if (wke::g_onIsMediaPlayerSupportsMIMETypeCallback) {
+
+        std::string typeStr = type.utf8();
+        bool isSupported = wke::g_onIsMediaPlayerSupportsMIMETypeCallback(typeStr.c_str());
+        if (isSupported) // if (WTF::kNotFound != typeString.find("video/mp4"))
+            return blink::WebMimeRegistry::IsSupported;
+    }
+
     return blink::WebMimeRegistry::IsNotSupported;
 }
 
@@ -191,6 +204,7 @@ blink::WebMimeRegistry::SupportsType WebMimeRegistryImpl::supportsNonImageMIMETy
 //#endif
             "application/x-ftp-directory",
             "multipart/x-mixed-replace",
+            "multipart/related",
             //"application/x-shockwave-flash",
             // Note: ADDING a new type here will probably render it as HTML. This can
             // result in cross-site scripting.
@@ -218,6 +232,7 @@ void WebMimeRegistryImpl::ensureMimeTypeMap()
     m_mimetypeMap->add("htm", "text/html");
     m_mimetypeMap->add("xml", "text/xml");
     m_mimetypeMap->add("xsl", "text/xsl");
+    m_mimetypeMap->add("xls", "application/xls+vnd.ms-excel");
     m_mimetypeMap->add("js", "application/x-javascript");
     m_mimetypeMap->add("xhtml", "application/xhtml+xml");
     m_mimetypeMap->add("rss", "application/rss+xml");
@@ -239,6 +254,16 @@ void WebMimeRegistryImpl::ensureMimeTypeMap()
     m_mimetypeMap->add("mp4", "video/mp4");
     m_mimetypeMap->add("ogg", "video/ogg");
     m_mimetypeMap->add("webm", "video/webm");
+    m_mimetypeMap->add("mht", "multipart/related");
+    m_mimetypeMap->add("mhtml", "multipart/related");
+
+    m_mimetypeMap->add("hex", "application/hex");
+    m_mimetypeMap->add("rbf", "application/rbf");
+    m_mimetypeMap->add("bin", "application/bin");
+    m_mimetypeMap->add("zip", "application/zip");
+    m_mimetypeMap->add("rar", "application/rar");
+    m_mimetypeMap->add("doc", "application/doc");
+    m_mimetypeMap->add("docx", "application/docx");
 }
 
 blink::WebString WebMimeRegistryImpl::mimeTypeForExtension(const blink::WebString& ext)
@@ -265,19 +290,68 @@ blink::WebString WebMimeRegistryImpl::mimeTypeFromFile(const blink::WebString& e
     return blink::WebString();
 }
 
-blink::WebString WebMimeRegistryImpl::extensionFormimeType(const blink::WebString& ext)
+blink::WebString WebMimeRegistryImpl::extensionForMimeType(const blink::WebString& mime)
 {
     ASSERT(isMainThread());
 
-    if (ext.isNull() || ext.isEmpty())
+    if (mime.isNull() || mime.isEmpty())
         return blink::WebString();
 
     ensureMimeTypeMap();
     for (WTF::HashMap<WTF::String, WTF::String>::iterator it = m_mimetypeMap->begin(); it != m_mimetypeMap->end(); ++it) {
-        if (WTF::equalIgnoringCase(it->value, String(ext)))
+        if (WTF::equalIgnoringCase(it->value, String(mime)))
             return it->key;
     }
     return blink::WebString();
+}
+
+static bool match(const char* pattern, const char* content)
+{
+    // if we reatch both end of two string, we are done  
+    if ('\0' == *pattern && '\0' == *content)
+        return true;
+    /* make sure that the characters after '*' are present in second string.
+    this function assumes that the first string will not contain two
+    consecutive '*'*/
+    if ('*' == *pattern && '\0' != *(pattern + 1) && '\0' == *content)
+        return false;
+    // if the first string contains '?', or current characters of both   
+    // strings match  
+    if ('?' == *pattern || *pattern == *content)
+        return match(pattern + 1, content + 1);
+    /* if there is *, then there are two possibilities
+    a) We consider current character of second string
+    b) We ignore current character of second string.*/
+    if ('*' == *pattern)
+        return match(pattern + 1, content) || match(pattern, content + 1);
+    return false;
+}
+
+static bool wildcardMatch(const WTF::String& pattern, const WTF::String& content)
+{
+    CString patternStr = pattern.utf8();
+    CString contentStr = content.utf8();
+    bool result = match(patternStr.data(), contentStr.data());
+    if (!result)
+        result = (WTF::kNotFound != content.find(pattern));
+    
+    return result;
+}
+
+Vector<blink::WebString> WebMimeRegistryImpl::extensionsForMimeType(const blink::WebString& mime)
+{
+    ASSERT(isMainThread());
+
+    Vector<blink::WebString> result;
+    if (mime.isNull() || mime.isEmpty())
+        return result;
+
+    ensureMimeTypeMap();
+    for (WTF::HashMap<WTF::String, WTF::String>::iterator it = m_mimetypeMap->begin(); it != m_mimetypeMap->end(); ++it) {
+        if (wildcardMatch(mime, it->value))
+            result.append(it->key);
+    }
+    return result;
 }
 
 } // namespace content

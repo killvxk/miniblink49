@@ -2,7 +2,7 @@
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
-#include "node/include/nodeblink.h"
+#include "node/nodeblink.h"
 #include "browser/api/ProtocolInterface.h"
 #include "common/NodeRegisterHelp.h"
 #include "common/ThreadCall.h"
@@ -101,9 +101,9 @@ public:
     }
 
     virtual bool handleLoadUrlBegin(void* param, const char* url, void* jobPtr) override {
-        OutputDebugStringA("handleLoadUrlBegin:");
-        OutputDebugStringA(url);
-        OutputDebugStringA("\n");
+//         OutputDebugStringA("handleLoadUrlBegin:");
+//         OutputDebugStringA(url);
+//         OutputDebugStringA("\n");
 
         const char* pos = strstr(url, "://");
         if (!pos)

@@ -16,6 +16,7 @@
 #include "third_party/WebKit/public/platform/WebTraceLocation.h"
 #include "third_party/WebKit/public/platform/Platform.h"
 #include "third_party/WebKit/Source/bindings/core/v8/V8RecursionScope.h"
+#include "gen/blink/platform/RuntimeEnabledFeatures.h"
 #include <v8.h>
 
 namespace content {
@@ -212,9 +213,18 @@ blink::WebDevToolsAgentClient::WebKitClientMessageLoop* DevToolsAgent::createCli
     return new WebKitClientMessageLoopImpl(this);
 }
 
+static bool g_noSetCheckReEnter = false;
+
 void DevToolsAgent::willEnterDebugLoopInRun()
 {
-    CheckReEnter::s_kEnterContent--;
+    if (blink::RuntimeEnabledFeatures::updataInOtherThreadEnabled()) {
+        RELEASE_ASSERT(0 == CheckReEnter::getEnterCount());
+    } else {
+        if (0 < CheckReEnter::getEnterCount())
+            CheckReEnter::decrementEnterCount();
+        else
+            g_noSetCheckReEnter = true; // 从net的load finish里调用过来的时候，可能计数是0
+    }
     blink::ThreadState* threadState = blink::ThreadState::current();
     threadState->enterGCForbiddenScope();
 
@@ -231,7 +241,13 @@ void DevToolsAgent::didExitDebugLoopInRun()
     m_page->didExitDebugLoop();
     m_devToolsClient->didExitDebugLoop();
 
-    CheckReEnter::s_kEnterContent++;
+    if (blink::RuntimeEnabledFeatures::updataInOtherThreadEnabled()) {
+        RELEASE_ASSERT(0 == CheckReEnter::getEnterCount());
+    } else {
+        if (!g_noSetCheckReEnter)
+            CheckReEnter::incrementEnterCount();
+        g_noSetCheckReEnter = false;
+    }
 }
 
 void DevToolsAgent::willEnterDebugLoop()

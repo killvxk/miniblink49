@@ -31,9 +31,17 @@ public:
     {
         for (size_t i = 0; i < m_elements.size(); ++i) {
             delete m_elements[i];
-            if (!m_file)
+            if (m_file)
                 fclose(m_file);
         }
+    }
+
+    void reset()
+    {
+        m_formDataElementIndex = 0;
+        if (m_file)
+            fclose(m_file);
+        m_file = nullptr;
     }
     
     size_t read(void* ptr, size_t blockSize, size_t numberOfBlocks)
@@ -79,7 +87,7 @@ public:
             }
             if (feof(m_file)) {
                 fclose(m_file);
-                m_file = 0;
+                m_file = nullptr;
                 m_formDataElementIndex++;
             }
         } else {
